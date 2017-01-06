@@ -106,15 +106,27 @@ namespace VerticalCurves
                         nextPERCENTGRA = curves.Skip(curves.IndexOf(curve) + 1).First().PERCENTGRA;
                     }
 
-                    if (nextPERCENTGRA == 0 && prevPERCENTGRA == 0)
+                    // for first and last records, if distance is greater than 528 ft, VAFT should be an empty string
+                    if ((index == 0 || index == lastIndex) && curve.DISTANCE > 528)
                     {
-                        curve.VAFT = VAFT.VG.ToString();
-                    } else if (nextPERCENTGRA > prevPERCENTGRA)
+                        curve.VAFT = "";
+                    }
+                    else
                     {
-                        curve.VAFT = VAFT.CVC.ToString();
-                    } else 
-                    {
-                        curve.VAFT = VAFT.SVC.ToString();
+
+                        if (nextPERCENTGRA == 0 && prevPERCENTGRA == 0)
+                        {
+                            curve.VAFT = VAFT.VG.ToString();
+                        }
+                        else if (prevPERCENTGRA < nextPERCENTGRA)
+                        {
+                            curve.VAFT = VAFT.SVC.ToString();
+                        }
+                        else
+                        {
+                            curve.VAFT = VAFT.CVC.ToString();
+                        }
+
                     }
                     _repo.UpdateVerticalCurve(curve);
                 }
