@@ -2,11 +2,19 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
+
 
 namespace VerticalCurves
 {
+
+    public enum VAFT
+    {
+        CVC,
+        SVC,
+        VG
+    }
+
     public interface ICurvesRepository
     {
         List<RouteLength> GetAllRouteLengths();
@@ -27,10 +35,20 @@ namespace VerticalCurves
 
         void TruncateVerticalCurves();
 
+        void ResetRowCount();
+
     }
 
     public class CurvesRepository : ICurvesRepository
     {
+
+        private int rowCount = 0;
+
+        public void ResetRowCount()
+        {
+            rowCount = 0;
+        }
+
         public List<RouteLength> GetAllRouteLengths()
         {
             var runLengths = new RouteLengths().All().Select(x => new RouteLength(x)).ToList();
@@ -80,7 +98,7 @@ namespace VerticalCurves
             args.Add(curve.PERCENTGRA);
             args.Add(curve.VAFT);
             new VerticalCurves().Execute(query, args: args.ToArray());
-            var str = string.Format("INSERTED ROUTE: {0}, FROMMEAS: {1}, TOMEAS: {2}", curve.ROUTE, curve.FROMMEAS, curve.TOMEAS);
+            var str = string.Format("RowCount: {0},INSERTED ROUTE: {1}, FROMMEAS: {2}, TOMEAS: {3}", rowCount = rowCount + 1,  curve.ROUTE, curve.FROMMEAS, curve.TOMEAS);
             Console.WriteLine(str);
 
         }
@@ -95,36 +113,104 @@ namespace VerticalCurves
             args.Add(curve.TOMEAS);
             var table = new VerticalCurves();
             table.Execute(query, args: args.ToArray());
-            var str = string.Format("UPDATED ROUTE: {0}, FROMMEAS: {1}, TOMEAS: {2}, VAFT: {3}", curve.ROUTE, curve.FROMMEAS, curve.TOMEAS, curve.VAFT);
+            var str = string.Format("RowCount: {0}, UPDATED ROUTE: {1}, FROMMEAS: {2}, TOMEAS: {3}, VAFT: {4}", rowCount = rowCount + 1, curve.ROUTE, curve.FROMMEAS, curve.TOMEAS, curve.VAFT);
             Console.WriteLine(str);
         }
 
         public void InsertRouteStart(VerticalCurve curve)
         {
-            var toInsert = new VerticalCurve()
+            /* if the distance of the route start is greater than 528 insert two records
+            * 1st, FROMEAS is 0, TOMEAS is the next's FROMMEAS  
+            * 2nd, FROMMEAS is current curve record's TOMEAS - 528 and TOMEAS is its FROMEAS
+            * the InsertRouteStart contains this logic
+            */
+            if (curve.FROMMEAS > 528)
             {
-                ROUTE = curve.ROUTE,
-                FROMMEAS = 0,
-                TOMEAS = curve.FROMMEAS,
-                DISTANCE = curve.FROMMEAS,
-                PERCENTGRA = 0,
-                VAFT = ""
-            };
-            InsertVerticalCurve(toInsert);
+                var toInsertB = new VerticalCurve()
+                {
+                    ROUTE = curve.ROUTE,
+                    FROMMEAS = curve.FROMMEAS - 528,
+                    TOMEAS = curve.FROMMEAS,
+                    DISTANCE = "528",
+                    PERCENTGRA = 0,
+                    VAFT = ""
+                };
+
+                var toIsertA = new VerticalCurve()
+                {
+                    ROUTE = curve.ROUTE,
+                    FROMMEAS = 0,
+                    TOMEAS = toInsertB.FROMMEAS,
+                    DISTANCE = toInsertB.FROMMEAS.ToString(),
+                    PERCENTGRA = 0,
+                    VAFT = ""
+                };
+
+                InsertVerticalCurve(toIsertA);
+                InsertVerticalCurve(toInsertB);
+
+            }
+            else
+            {
+
+                var toInsert = new VerticalCurve()
+                {
+                    ROUTE = curve.ROUTE,
+                    FROMMEAS = 0,
+                    TOMEAS = curve.FROMMEAS,
+                    DISTANCE = curve.FROMMEAS.ToString(),
+                    PERCENTGRA = 0,
+                    VAFT = ""
+                };
+                InsertVerticalCurve(toInsert);
+            }
+
         }
         
         public void InsertRouteEnd(VerticalCurve curve, RouteLength route)
         {
-            var toInsert = new VerticalCurve()
+            /*
+             * if distance is greater than 528 ft, insert two records
+             * 1st, the FROMMEAS is the previous TOMEAS, and TOMEAS is FROMMEAS + 528
+             * 2nd, FROMMEAS is 1st record's TOMEAS and TOMEAS is ROUTE LENGTH
+             */
+            if (route.LENGTH - curve.TOMEAS > 528)
             {
-                ROUTE = curve.ROUTE,
-                FROMMEAS = curve.TOMEAS,
-                TOMEAS = route.LENGTH,
-                DISTANCE = route.LENGTH - curve.TOMEAS,
-                PERCENTGRA = 0,
-                VAFT = ""
-            };
-            InsertVerticalCurve(toInsert);
+                var toInsertA = new VerticalCurve()
+                {
+                    ROUTE = curve.ROUTE,
+                    FROMMEAS = curve.TOMEAS,
+                    TOMEAS = curve.TOMEAS + 528,
+                    DISTANCE = "528",
+                    PERCENTGRA = 0,
+                    VAFT = ""
+                };
+
+                var toInsertB = new VerticalCurve()
+                {
+                    ROUTE = curve.ROUTE,
+                    FROMMEAS = toInsertA.TOMEAS,
+                    TOMEAS = route.LENGTH,
+                    DISTANCE = (route.LENGTH - toInsertA.TOMEAS).ToString(),
+                    PERCENTGRA = 0,
+                    VAFT = ""
+                };
+                InsertVerticalCurve(toInsertA);
+                InsertVerticalCurve(toInsertB);
+            }
+            else
+            {
+                var toInsert = new VerticalCurve()
+                {
+                    ROUTE = curve.ROUTE,
+                    FROMMEAS = curve.TOMEAS,
+                    TOMEAS = route.LENGTH,
+                    DISTANCE = (route.LENGTH - curve.TOMEAS).ToString(),
+                    PERCENTGRA = 0,
+                    VAFT = ""
+                };
+                InsertVerticalCurve(toInsert);
+            }
         }
 
         public void InsertRouteGap(VerticalCurve previousCurve, VerticalCurve currentCurve)
@@ -134,7 +220,7 @@ namespace VerticalCurves
                 ROUTE = currentCurve.ROUTE,
                 FROMMEAS = previousCurve.TOMEAS,
                 TOMEAS = currentCurve.FROMMEAS,
-                DISTANCE = currentCurve.FROMMEAS - previousCurve.TOMEAS,
+                DISTANCE = (currentCurve.FROMMEAS - previousCurve.TOMEAS).ToString(),
                 PERCENTGRA = 0,
                 VAFT = ""
             };
