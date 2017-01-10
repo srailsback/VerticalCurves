@@ -135,7 +135,7 @@ namespace VerticalCurves
                         if (current.PERCENTGRA != 0)
                         {
                             current.VAFT = VAFT.VG.ToString();
-                            _repo.UpdateVerticalCurve(current);
+                            _repo.UpdateVerticalCurve(current, current);
                         }
                         else
                         {
@@ -178,24 +178,27 @@ namespace VerticalCurves
 
                             if (current.VAFT != "")
                             {
-                                _repo.UpdateVerticalCurve(current);
+                                _repo.UpdateVerticalCurve(current, current);
                             }
                         }
                     }
 
 
                     // case for the last record
-                    if (index == lastIndex && current.PERCENTGRA <= 528)
+                    if (index == lastIndex && float.Parse(current.DISTANCE) <= 528)
                     {
 
                         if (current.PERCENTGRA != 0) {
                             current.VAFT = VAFT.VG.ToString();
-                            _repo.UpdateVerticalCurve(current);
+                            _repo.UpdateVerticalCurve(current, current);
                         }
                         else
                         {
-                            current.VAFT = previous.PERCENTGRA < 0 ? VAFT.SVC.ToString() : VAFT.CVC.ToString();
-                            _repo.UpdateVerticalCurve(current);
+                            if (previous.PERCENTGRA != 0)
+                            {
+                                current.VAFT = previous.PERCENTGRA < 0 ? VAFT.SVC.ToString() : VAFT.CVC.ToString();
+                                _repo.UpdateVerticalCurve(current, current);
+                            }
                         }
                     }
                 }
@@ -203,7 +206,50 @@ namespace VerticalCurves
 
             #endregion
 
+            #region last records
+            /*
+             unique case, if there are 3 consecutive 0 PERCENTGRA at end of route,
+             combine them then apply the 528 rule
+             */
+            foreach(var route in routes)
+            {
+                var curves = _repo.GetVerticalCurvesByRoute(route.ROUTE, false);
+                // get the last three
+                if (curves.Count > 3)
+                {
+                    var lastRows = curves.Skip(curves.Count - 3).Take(3);
+                    if (lastRows.Where(x => x.PERCENTGRA == 0).Count() == 3)
+                    {
 
+                        var first = lastRows.First();
+                        var second = lastRows.Skip(1).First();
+                        var third = lastRows.Last();
+
+
+                        _repo.UpdateVerticalCurve(first, new VerticalCurve() {
+                            ROUTE = first.ROUTE,
+                            FROMMEAS = first.FROMMEAS,
+                            TOMEAS = first.FROMMEAS + 528,
+                            DISTANCE = "528",
+                            PERCENTGRA = first.PERCENTGRA,
+                            VAFT = first.VAFT
+                        });
+
+                        _repo.UpdateVerticalCurve(second, new VerticalCurve() {
+                            ROUTE = second.ROUTE,
+                            FROMMEAS = first.FROMMEAS + 528,
+                            TOMEAS = third.TOMEAS,
+                            DISTANCE = (third.TOMEAS - (first.FROMMEAS + 528)).ToString(),
+                            PERCENTGRA = second.PERCENTGRA,
+                            VAFT = second.VAFT
+                        });
+
+                        _repo.DeleteVerticalCurve(third);
+                   }
+                }
+            }
+
+            #endregion
             Console.WriteLine("Done");
             //Console.ReadKey();
         }

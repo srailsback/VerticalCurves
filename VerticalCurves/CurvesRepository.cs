@@ -1,6 +1,8 @@
 ﻿using Massive;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
 using System.Linq;
 
 
@@ -25,7 +27,7 @@ namespace VerticalCurves
 
         void InsertVerticalCurve(VerticalCurve curve);
 
-        void UpdateVerticalCurve(VerticalCurve curve);
+        void UpdateVerticalCurve(VerticalCurve source, VerticalCurve toUpdate);
 
         void InsertRouteStart(VerticalCurve curve);
 
@@ -37,12 +39,19 @@ namespace VerticalCurves
 
         void ResetRowCount();
 
+        void DeleteVerticalCurve(VerticalCurve curve);
+
     }
 
     public class CurvesRepository : ICurvesRepository
     {
 
         private int rowCount = 0;
+
+        public CurvesRepository()
+        {
+        }
+
 
         public void ResetRowCount()
         {
@@ -98,22 +107,26 @@ namespace VerticalCurves
             args.Add(curve.PERCENTGRA);
             args.Add(curve.VAFT);
             new VerticalCurves().Execute(query, args: args.ToArray());
-            var str = string.Format("RowCount: {0},INSERTED ROUTE: {1}, FROMMEAS: {2}, TOMEAS: {3}", rowCount = rowCount + 1,  curve.ROUTE, curve.FROMMEAS, curve.TOMEAS);
+            var str = string.Format("RowCount: {0},INSERTED ROUTE: {1}, FROMMEAS: {2}, TOMEAS: {3}", rowCount = rowCount + 1, curve.ROUTE, curve.FROMMEAS, curve.TOMEAS);
             Console.WriteLine(str);
 
         }
 
-        public void UpdateVerticalCurve(VerticalCurve curve)
+        public void UpdateVerticalCurve(VerticalCurve source, VerticalCurve toUpdate)
         {
-            var query = "UPDATE VerticalCurves SET VAFT = @0 WHERE ROUTE = @1 AND FROMMEAS = @2 AND TOMEAS = @3";
+            var query = "UPDATE VerticalCurves SET FROMMEAS = @0, TOMEAS = @1, DISTANCE = @2, PERCENTGRA = @3, VAFT = @4 WHERE ROUTE = @5 AND FROMMEAS = @6 AND TOMEAS = @7";
             var args = new List<object>();
-            args.Add(curve.VAFT);
-            args.Add(curve.ROUTE);
-            args.Add(curve.FROMMEAS);
-            args.Add(curve.TOMEAS);
+            args.Add(toUpdate.FROMMEAS); // 0
+            args.Add(toUpdate.TOMEAS); // 1
+            args.Add(toUpdate.DISTANCE); // 2
+            args.Add(toUpdate.PERCENTGRA); // 3
+            args.Add(toUpdate.VAFT); // 4
+            args.Add(source.ROUTE); // 5
+            args.Add(source.FROMMEAS); // 6
+            args.Add(source.TOMEAS); // 7
             var table = new VerticalCurves();
             table.Execute(query, args: args.ToArray());
-            var str = string.Format("RowCount: {0}, UPDATED ROUTE: {1}, FROMMEAS: {2}, TOMEAS: {3}, VAFT: {4}", rowCount = rowCount + 1, curve.ROUTE, curve.FROMMEAS, curve.TOMEAS, curve.VAFT);
+            var str = string.Format("RowCount: {0}, UPDATED ROUTE: {1}, FROMMEAS: {2}, TOMEAS: {3}, VAFT: {4}", rowCount = rowCount + 1, toUpdate.ROUTE, toUpdate.FROMMEAS, toUpdate.TOMEAS, toUpdate.VAFT);
             Console.WriteLine(str);
         }
 
@@ -166,7 +179,7 @@ namespace VerticalCurves
             }
 
         }
-        
+
         public void InsertRouteEnd(VerticalCurve curve, RouteLength route)
         {
             /*
@@ -225,6 +238,7 @@ namespace VerticalCurves
                 VAFT = ""
             };
             InsertVerticalCurve(toInsert);
+
         }
 
         public void TruncateVerticalCurves()
@@ -232,6 +246,20 @@ namespace VerticalCurves
             var query = "TRUNCATE TABLE VerticalCurves";
             var table = new VerticalCurves().Execute(query);
         }
+
+        public void DeleteVerticalCurve(VerticalCurve curve)
+        {
+            var sql = "DELETE FROM VerticalCurves WHERE ROUTE = @0 AND FROMMEAS = @1 AND TOMEAS = @2";
+            var args = new List<object>();
+            args.Add(curve.ROUTE);
+            args.Add(curve.FROMMEAS);
+            args.Add(curve.TOMEAS);
+            var table = new VerticalCurves();
+            table.Execute(sql, args: args.ToArray());
+            var str = string.Format("DELETED ROUTE: {0}, FROMMEAS: {1}, TOMEAS: {2}", curve.ROUTE, curve.FROMMEAS, curve.TOMEAS);
+            Console.WriteLine(str);
+        }
+
     }
 
 

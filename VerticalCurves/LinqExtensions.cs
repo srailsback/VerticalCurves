@@ -8,15 +8,10 @@ namespace VerticalCurves
 {
     public static class LinqExtensions
     {
-        public static T Next<T>(this List<T> source, T current)
+        public static TSource Set<TSource>(this TSource input, Action<TSource> updater)
         {
-
-            return source.Skip(source.IndexOf(current) + 1).Take(1).FirstOrDefault();
-        }
-
-        public static T Previous<T>(this List<T> source, T current)
-        {
-            return source.Skip(source.IndexOf(current) - 1).Take(1).FirstOrDefault();
+            updater(input);
+            return input;
         }
     }
 }
